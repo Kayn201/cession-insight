@@ -1,13 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Acquisition = {
@@ -19,7 +12,7 @@ type Acquisition = {
   preco_pago: number;
   valor_liquido: number;
   lucro: number;
-  status: 'ativa' | 'finalizada';
+  status: "ativa" | "finalizada";
   fase_processo: string | null;
   proxima_verificacao: string | null;
   pessoas: string | null;
@@ -48,10 +41,10 @@ const getIncidentBadgeVariant = (incidente: string) => {
 };
 
 const AcquisitionsTable = ({ acquisitions, title = "Aquisições" }: AcquisitionsTableProps) => {
-  const precatorios = acquisitions.filter(a => a.incidente === 'precatorio');
-  const rpvs = acquisitions.filter(a => a.incidente === 'rpv');
-  const prioridade = acquisitions.filter(a => a.incidente === 'precatorio_prioridade');
-  const sjrp = acquisitions.filter(a => a.incidente === 'precatorio_sjrp');
+  const precatorios = acquisitions.filter((a) => a.incidente === "precatorio");
+  const rpvs = acquisitions.filter((a) => a.incidente === "rpv");
+  const prioridade = acquisitions.filter((a) => a.incidente === "precatorio_prioridade");
+  const sjrp = acquisitions.filter((a) => a.incidente === "precatorio_sjrp");
   const renderTable = (data: Acquisition[]) => (
     <div className="overflow-x-auto">
       <Table>
@@ -81,27 +74,21 @@ const AcquisitionsTable = ({ acquisitions, title = "Aquisições" }: Acquisition
                 <TableCell className="font-medium">{formatDate(item.data_aquisicao)}</TableCell>
                 <TableCell>
                   <Badge variant={getIncidentBadgeVariant(item.incidente)}>
-                    {item.incidente.replace(/_/g, ' ').toUpperCase()}
+                    {item.incidente.replace(/_/g, " ").toUpperCase()}
                   </Badge>
                 </TableCell>
                 <TableCell>{item.cessionario_nome}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {item.pessoas || 'N/A'}
-                </TableCell>
-                <TableCell className="text-right">
-                  {formatCurrency(Number(item.preco_pago))}
-                </TableCell>
-                <TableCell className="text-right">
-                  {formatCurrency(Number(item.valor_liquido))}
-                </TableCell>
+                <TableCell className="text-muted-foreground">{item.pessoas || "N/A"}</TableCell>
+                <TableCell className="text-right">{formatCurrency(Number(item.preco_pago))}</TableCell>
+                <TableCell className="text-right">{formatCurrency(Number(item.valor_liquido))}</TableCell>
                 <TableCell className="text-right font-semibold text-success">
                   {formatCurrency(Number(item.lucro))}
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline">{item.fase_processo || 'N/A'}</Badge>
+                  <Badge variant="outline">{item.fase_processo || "N/A"}</Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {item.proxima_verificacao ? formatDate(item.proxima_verificacao) : 'N/A'}
+                  {item.proxima_verificacao ? formatDate(item.proxima_verificacao) : "N/A"}
                 </TableCell>
               </TableRow>
             ))
@@ -125,26 +112,16 @@ const AcquisitionsTable = ({ acquisitions, title = "Aquisições" }: Acquisition
             <TabsTrigger value="prioridade">Prioridade ({prioridade.length})</TabsTrigger>
             <TabsTrigger value="sjrp">SJRP ({sjrp.length})</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="all">
-            {renderTable(acquisitions)}
-          </TabsContent>
-          
-          <TabsContent value="precatorio">
-            {renderTable(precatorios)}
-          </TabsContent>
-          
-          <TabsContent value="rpv">
-            {renderTable(rpvs)}
-          </TabsContent>
-          
-          <TabsContent value="prioridade">
-            {renderTable(prioridade)}
-          </TabsContent>
-          
-          <TabsContent value="sjrp">
-            {renderTable(sjrp)}
-          </TabsContent>
+
+          <TabsContent value="all">{renderTable(acquisitions)}</TabsContent>
+
+          <TabsContent value="precatorio">{renderTable(precatorios)}</TabsContent>
+
+          <TabsContent value="rpv">{renderTable(rpvs)}</TabsContent>
+
+          <TabsContent value="prioridade">{renderTable(prioridade)}</TabsContent>
+
+          <TabsContent value="sjrp">{renderTable(sjrp)}</TabsContent>
         </Tabs>
       </CardContent>
     </Card>
