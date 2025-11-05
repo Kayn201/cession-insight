@@ -22,6 +22,7 @@ type Acquisition = {
   status: 'ativa' | 'finalizada';
   fase_processo: string | null;
   proxima_verificacao: string | null;
+  pessoas: string | null;
 };
 
 type AcquisitionsTableProps = {
@@ -59,6 +60,7 @@ const AcquisitionsTable = ({ acquisitions, title = "Aquisições" }: Acquisition
             <TableHead>Data</TableHead>
             <TableHead>Incidente</TableHead>
             <TableHead>Cessionário</TableHead>
+            <TableHead>Responsável</TableHead>
             <TableHead className="text-right">Valor Pago</TableHead>
             <TableHead className="text-right">Valor Líquido</TableHead>
             <TableHead className="text-right">Lucro</TableHead>
@@ -69,7 +71,7 @@ const AcquisitionsTable = ({ acquisitions, title = "Aquisições" }: Acquisition
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                 Nenhuma aquisição encontrada
               </TableCell>
             </TableRow>
@@ -83,6 +85,9 @@ const AcquisitionsTable = ({ acquisitions, title = "Aquisições" }: Acquisition
                   </Badge>
                 </TableCell>
                 <TableCell>{item.cessionario_nome}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {item.pessoas || 'N/A'}
+                </TableCell>
                 <TableCell className="text-right">
                   {formatCurrency(Number(item.preco_pago))}
                 </TableCell>

@@ -22,6 +22,8 @@ type Acquisition = {
   status: 'ativa' | 'finalizada';
   fase_processo: string | null;
   proxima_verificacao: string | null;
+  pessoas: string | null;
+  data_pagamento: string | null;
 };
 
 const Dashboard = () => {
@@ -91,6 +93,31 @@ const Dashboard = () => {
   const totalAquisicoes = acquisitions.length;
   const aquisitiveAtivas = activeAcquisitions.length;
 
+  // Cálculos para todas as aquisições
+  const totalInvestidoGeral = acquisitions.reduce((sum, acq) => sum + Number(acq.preco_pago), 0);
+  const totalLucroGeral = acquisitions.reduce((sum, acq) => sum + Number(acq.lucro), 0);
+  const totalValorLiquidoGeral = acquisitions.reduce((sum, acq) => sum + Number(acq.valor_liquido), 0);
+
+  // Cálculo de rentabilidade temporal e lucro anual
+  const calculateAnnualReturn = () => {
+    const acquisitionsWithPayment = acquisitions.filter(acq => acq.data_pagamento);
+    if (acquisitionsWithPayment.length === 0) return 0;
+
+    const totalAnnualReturn = acquisitionsWithPayment.reduce((sum, acq) => {
+      const startDate = new Date(acq.data_aquisicao);
+      const endDate = new Date(acq.data_pagamento!);
+      const daysDiff = Math.max(1, (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      const yearsElapsed = daysDiff / 365;
+      const annualReturn = yearsElapsed > 0 ? Number(acq.lucro) / yearsElapsed : 0;
+      return sum + annualReturn;
+    }, 0);
+
+    return totalAnnualReturn / acquisitionsWithPayment.length;
+  };
+
+  const lucroAnualMedio = calculateAnnualReturn();
+  const rentabilidadeMedia = totalInvestidoGeral > 0 ? (totalLucroGeral / totalInvestidoGeral) * 100 : 0;
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -143,7 +170,7 @@ const Dashboard = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Cards de Resumo */}
+        {/* Cards de Resumo - Ativas e Finalizadas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="shadow-card hover:shadow-hover transition-shadow bg-gradient-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -201,6 +228,69 @@ const Dashboard = () => {
               <div className="text-2xl font-bold">{finishedAcquisitions.length}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 Concluídas
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Cards de Cálculo Médio - Todas as Aquisições */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="shadow-card hover:shadow-hover transition-shadow bg-gradient-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total Investido (Geral)
+              </CardTitle>
+              <DollarSign className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(totalInvestidoGeral)}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Todas as aquisições
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card hover:shadow-hover transition-shadow bg-gradient-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Valor Líquido Total
+              </CardTitle>
+              <DollarSign className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(totalValorLiquidoGeral)}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Valor após despesas
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card hover:shadow-hover transition-shadow bg-gradient-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Lucro Total
+              </CardTitle>
+              <TrendingUp className="w-4 h-4 text-success" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-success">{formatCurrency(totalLucroGeral)}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {rentabilidadeMedia.toFixed(1)}% rentabilidade média
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card hover:shadow-hover transition-shadow bg-gradient-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Lucro Anual Médio
+              </CardTitle>
+              <TrendingUp className="w-4 h-4 text-success" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-success">{formatCurrency(lucroAnualMedio)}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Baseado em {acquisitions.filter(a => a.data_pagamento).length} aquisições pagas
               </p>
             </CardContent>
           </Card>
