@@ -34,6 +34,7 @@ const UserManagement = () => {
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserRole, setNewUserRole] = useState<"admin" | "user">("user");
+  const [newUserCessionario, setNewUserCessionario] = useState("");
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -156,6 +157,18 @@ const UserManagement = () => {
           if (roleError) throw roleError;
         }
 
+        // Update profile with cessionario if not admin
+        if (newUserRole !== 'admin' && newUserCessionario) {
+          const { error: cessionarioError } = await supabase
+            .from('profiles')
+            .update({ 
+              username: newUserCessionario 
+            })
+            .eq('user_id', authData.user.id);
+
+          if (cessionarioError) throw cessionarioError;
+        }
+
         toast({
           title: "Usuário criado com sucesso!",
           description: `${newUserName} foi adicionado ao sistema.`,
@@ -167,6 +180,7 @@ const UserManagement = () => {
         setNewUserEmail("");
         setNewUserPassword("");
         setNewUserRole("user");
+        setNewUserCessionario("");
         fetchUsers();
       }
     } catch (error: any) {
@@ -290,6 +304,17 @@ const UserManagement = () => {
                       value={newUserPassword}
                       onChange={(e) => setNewUserPassword(e.target.value)}
                       required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cessionario">Cessionário</Label>
+                    <Input
+                      id="cessionario"
+                      value={newUserCessionario}
+                      onChange={(e) => setNewUserCessionario(e.target.value)}
+                      placeholder={newUserRole === 'admin' ? 'Não aplicável para administradores' : 'Nome do cessionário'}
+                      disabled={newUserRole === 'admin'}
+                      required={newUserRole !== 'admin'}
                     />
                   </div>
                   <div className="space-y-2">
