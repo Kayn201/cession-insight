@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogOut, TrendingUp, DollarSign, PieChart, FolderCheck } from "lucide-react";
+import { LogOut, TrendingUp, DollarSign, PieChart, FolderCheck, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Session } from "@supabase/supabase-js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,6 +33,7 @@ const Dashboard = () => {
   const [activeAcquisitions, setActiveAcquisitions] = useState<Acquisition[]>([]);
   const [finishedAcquisitions, setFinishedAcquisitions] = useState<Acquisition[]>([]);
   const [userName, setUserName] = useState<string>("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -46,6 +47,7 @@ const Dashboard = () => {
         setTimeout(() => {
           fetchAcquisitions();
           fetchUserProfile(session.user.id);
+          checkAdminStatus(session.user.id);
         }, 0);
       }
     });
@@ -59,12 +61,30 @@ const Dashboard = () => {
         setTimeout(() => {
           fetchAcquisitions();
           fetchUserProfile(session.user.id);
+          checkAdminStatus(session.user.id);
         }, 0);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const checkAdminStatus = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+
+      setIsAdmin(!!data);
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
+  };
 
   const fetchUserProfile = async (userId: string) => {
     try {
@@ -183,10 +203,18 @@ const Dashboard = () => {
               <p className="text-sm text-muted-foreground">{userName}</p>
             </div>
           </div>
-          <Button onClick={handleLogout} variant="outline" size="sm">
-            <LogOut className="w-4 h-4 mr-2" />
-            Sair
-          </Button>
+          <div className="flex gap-2">
+            {isAdmin && (
+              <Button onClick={() => navigate("/users")} variant="outline" size="sm">
+                <Users className="w-4 h-4 mr-2" />
+                Usuários
+              </Button>
+            )}
+            <Button onClick={handleLogout} variant="outline" size="sm">
+              <LogOut className="w-4 h-4 mr-2" />
+              Sair
+            </Button>
+          </div>
         </div>
       </header>
 
