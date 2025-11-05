@@ -32,6 +32,7 @@ const Dashboard = () => {
   const [acquisitions, setAcquisitions] = useState<Acquisition[]>([]);
   const [activeAcquisitions, setActiveAcquisitions] = useState<Acquisition[]>([]);
   const [finishedAcquisitions, setFinishedAcquisitions] = useState<Acquisition[]>([]);
+  const [userName, setUserName] = useState<string>("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -44,6 +45,7 @@ const Dashboard = () => {
       } else {
         setTimeout(() => {
           fetchAcquisitions();
+          fetchUserProfile(session.user.id);
         }, 0);
       }
     });
@@ -56,12 +58,31 @@ const Dashboard = () => {
       } else {
         setTimeout(() => {
           fetchAcquisitions();
+          fetchUserProfile(session.user.id);
         }, 0);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setUserName(data.full_name || "Usuário");
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   const fetchAcquisitions = async () => {
     try {
@@ -159,7 +180,7 @@ const Dashboard = () => {
             </div>
             <div>
               <h1 className="text-xl font-bold">Dashboard Financeiro</h1>
-              <p className="text-sm text-muted-foreground">{session.user.email}</p>
+              <p className="text-sm text-muted-foreground">{userName}</p>
             </div>
           </div>
           <Button onClick={handleLogout} variant="outline" size="sm">
