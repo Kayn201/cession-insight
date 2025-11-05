@@ -130,6 +130,7 @@ export type Database = {
           id: string
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
           created_at?: string
@@ -138,6 +139,7 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
           created_at?: string
@@ -146,6 +148,7 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -179,6 +182,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_first_user: { Args: never; Returns: boolean }
     }
     Enums: {
       acquisition_status: "ativa" | "finalizada"
