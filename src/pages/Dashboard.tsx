@@ -3,15 +3,33 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogOut, TrendingUp, DollarSign, PieChart } from "lucide-react";
+import { LogOut, TrendingUp, DollarSign, PieChart, FolderCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Session } from "@supabase/supabase-js";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AcquisitionsTable from "@/components/dashboard/AcquisitionsTable";
 import OverviewCharts from "@/components/dashboard/OverviewCharts";
+
+type Acquisition = {
+  id: string;
+  data_aquisicao: string;
+  incidente: string;
+  cessionario_nome: string;
+  valor_incidente: number;
+  preco_pago: number;
+  valor_liquido: number;
+  lucro: number;
+  status: 'ativa' | 'finalizada';
+  fase_processo: string | null;
+  proxima_verificacao: string | null;
+};
 
 const Dashboard = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [acquisitions, setAcquisitions] = useState<Acquisition[]>([]);
+  const [activeAcquisitions, setActiveAcquisitions] = useState<Acquisition[]>([]);
+  const [finishedAcquisitions, setFinishedAcquisitions] = useState<Acquisition[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -21,6 +39,10 @@ const Dashboard = () => {
       setLoading(false);
       if (!session) {
         navigate("/auth");
+      } else {
+        setTimeout(() => {
+          fetchAcquisitions();
+        }, 0);
       }
     });
 
@@ -29,11 +51,52 @@ const Dashboard = () => {
       setLoading(false);
       if (!session) {
         navigate("/auth");
+      } else {
+        setTimeout(() => {
+          fetchAcquisitions();
+        }, 0);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const fetchAcquisitions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('acquisitions')
+        .select('*')
+        .order('data_aquisicao', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        setAcquisitions(data);
+        setActiveAcquisitions(data.filter((acq) => acq.status === 'ativa'));
+        setFinishedAcquisitions(data.filter((acq) => acq.status === 'finalizada'));
+      }
+    } catch (error) {
+      console.error('Error fetching acquisitions:', error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar as aquisições.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Cálculos para aquisições ativas
+  const totalInvestidoAtivas = activeAcquisitions.reduce((sum, acq) => sum + Number(acq.preco_pago), 0);
+  const totalLucroAtivas = activeAcquisitions.reduce((sum, acq) => sum + Number(acq.lucro), 0);
+  const totalAquisicoes = acquisitions.length;
+  const aquisitiveAtivas = activeAcquisitions.length;
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -81,18 +144,18 @@ const Dashboard = () => {
 
       <main className="container mx-auto px-4 py-8 space-y-8">
         {/* Cards de Resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="shadow-card hover:shadow-hover transition-shadow bg-gradient-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Investido
+                Total Investido (Ativas)
               </CardTitle>
               <DollarSign className="w-4 h-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">R$ 1.245.000,00</div>
+              <div className="text-2xl font-bold">{formatCurrency(totalInvestidoAtivas)}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                +12.5% em relação ao mês anterior
+                Apenas aquisições ativas
               </p>
             </CardContent>
           </Card>
@@ -100,14 +163,14 @@ const Dashboard = () => {
           <Card className="shadow-card hover:shadow-hover transition-shadow bg-gradient-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Lucro Acumulado
+                Lucro Acumulado (Ativas)
               </CardTitle>
               <TrendingUp className="w-4 h-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-success">R$ 324.500,00</div>
+              <div className="text-2xl font-bold text-success">{formatCurrency(totalLucroAtivas)}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                26.1% de rentabilidade
+                {totalInvestidoAtivas > 0 ? ((totalLucroAtivas / totalInvestidoAtivas) * 100).toFixed(1) : '0'}% de rentabilidade
               </p>
             </CardContent>
           </Card>
@@ -120,19 +183,47 @@ const Dashboard = () => {
               <PieChart className="w-4 h-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">42</div>
+              <div className="text-2xl font-bold">{aquisitiveAtivas}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                8 aguardando pagamento
+                {totalAquisicoes} no total
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-card hover:shadow-hover transition-shadow bg-gradient-card">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Aquisições Finalizadas
+              </CardTitle>
+              <FolderCheck className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{finishedAcquisitions.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Concluídas
               </p>
             </CardContent>
           </Card>
         </div>
 
         {/* Gráficos */}
-        <OverviewCharts />
+        <OverviewCharts acquisitions={activeAcquisitions} />
 
-        {/* Tabela de Aquisições */}
-        <AcquisitionsTable />
+        {/* Tabelas de Aquisições com Tabs */}
+        <Tabs defaultValue="ativas" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="ativas">Aquisições Ativas ({aquisitiveAtivas})</TabsTrigger>
+            <TabsTrigger value="finalizadas">Aquisições Finalizadas ({finishedAcquisitions.length})</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="ativas">
+            <AcquisitionsTable acquisitions={activeAcquisitions} title="Aquisições Ativas" />
+          </TabsContent>
+          
+          <TabsContent value="finalizadas">
+            <AcquisitionsTable acquisitions={finishedAcquisitions} title="Aquisições Finalizadas" />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

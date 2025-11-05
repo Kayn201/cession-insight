@@ -1,20 +1,60 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { useMemo } from "react";
 
-const monthlyData = [
-  { name: "Jan", investido: 245000, lucro: 52000 },
-  { name: "Fev", investido: 320000, lucro: 68000 },
-  { name: "Mar", investido: 280000, lucro: 58000 },
-  { name: "Abr", investido: 400000, lucro: 82000 },
-];
+type Acquisition = {
+  id: string;
+  data_aquisicao: string;
+  incidente: string;
+  preco_pago: number;
+  lucro: number;
+};
 
-const incidentData = [
-  { name: "Precatórios", value: 45, color: "hsl(200, 90%, 40%)" },
-  { name: "RPV", value: 30, color: "hsl(210, 85%, 50%)" },
-  { name: "Prioridade", value: 25, color: "hsl(142, 76%, 36%)" },
-];
+type OverviewChartsProps = {
+  acquisitions: Acquisition[];
+};
 
-const OverviewCharts = () => {
+const OverviewCharts = ({ acquisitions }: OverviewChartsProps) => {
+  const monthlyData = useMemo(() => {
+    const monthsMap = new Map<string, { investido: number; lucro: number }>();
+    
+    acquisitions.forEach((acq) => {
+      const date = new Date(acq.data_aquisicao);
+      const monthYear = date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+      
+      const current = monthsMap.get(monthYear) || { investido: 0, lucro: 0 };
+      monthsMap.set(monthYear, {
+        investido: current.investido + Number(acq.preco_pago),
+        lucro: current.lucro + Number(acq.lucro),
+      });
+    });
+
+    return Array.from(monthsMap.entries())
+      .map(([name, data]) => ({ name, ...data }))
+      .slice(-6);
+  }, [acquisitions]);
+
+  const incidentData = useMemo(() => {
+    const incidentMap = new Map<string, number>();
+    
+    acquisitions.forEach((acq) => {
+      const current = incidentMap.get(acq.incidente) || 0;
+      incidentMap.set(acq.incidente, current + 1);
+    });
+
+    const colors = {
+      precatorio: "hsl(200, 90%, 40%)",
+      rpv: "hsl(210, 85%, 50%)",
+      precatorio_prioridade: "hsl(142, 76%, 36%)",
+      precatorio_sjrp: "hsl(280, 70%, 45%)",
+    };
+
+    return Array.from(incidentMap.entries()).map(([name, value]) => ({
+      name: name.replace(/_/g, ' ').toUpperCase(),
+      value,
+      color: colors[name as keyof typeof colors] || "hsl(0, 0%, 50%)",
+    }));
+  }, [acquisitions]);
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <Card className="shadow-card">

@@ -10,44 +10,24 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const mockData = [
-  {
-    id: 1,
-    dataAquisicao: "15/01/2024",
-    incidente: "Precatório",
-    cessionario: "João Silva",
-    valorIncidente: 150000,
-    precoPago: 120000,
-    valorLiquido: 142500,
-    lucro: 22500,
-    fase: "Habilitação",
-    proximaVerificacao: "20/02/2024",
-  },
-  {
-    id: 2,
-    dataAquisicao: "22/01/2024",
-    incidente: "RPV",
-    cessionario: "Maria Santos",
-    valorIncidente: 85000,
-    precoPago: 68000,
-    valorLiquido: 80750,
-    lucro: 12750,
-    fase: "Pagamento",
-    proximaVerificacao: "15/02/2024",
-  },
-  {
-    id: 3,
-    dataAquisicao: "10/02/2024",
-    incidente: "Precatório Prioridade",
-    cessionario: "Carlos Oliveira",
-    valorIncidente: 250000,
-    precoPago: 200000,
-    valorLiquido: 237500,
-    lucro: 37500,
-    fase: "Análise",
-    proximaVerificacao: "01/03/2024",
-  },
-];
+type Acquisition = {
+  id: string;
+  data_aquisicao: string;
+  incidente: string;
+  cessionario_nome: string;
+  valor_incidente: number;
+  preco_pago: number;
+  valor_liquido: number;
+  lucro: number;
+  status: 'ativa' | 'finalizada';
+  fase_processo: string | null;
+  proxima_verificacao: string | null;
+};
+
+type AcquisitionsTableProps = {
+  acquisitions: Acquisition[];
+  title?: string;
+};
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -56,80 +36,109 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-const AcquisitionsTable = () => {
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString("pt-BR");
+};
+
+const getIncidentBadgeVariant = (incidente: string) => {
+  if (incidente === "rpv") return "secondary";
+  if (incidente === "precatorio_prioridade") return "default";
+  return "outline";
+};
+
+const AcquisitionsTable = ({ acquisitions, title = "Aquisições" }: AcquisitionsTableProps) => {
+  const precatorios = acquisitions.filter(a => a.incidente === 'precatorio');
+  const rpvs = acquisitions.filter(a => a.incidente === 'rpv');
+  const prioridade = acquisitions.filter(a => a.incidente === 'precatorio_prioridade');
+  const sjrp = acquisitions.filter(a => a.incidente === 'precatorio_sjrp');
+  const renderTable = (data: Acquisition[]) => (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Data</TableHead>
+            <TableHead>Incidente</TableHead>
+            <TableHead>Cessionário</TableHead>
+            <TableHead className="text-right">Valor Pago</TableHead>
+            <TableHead className="text-right">Valor Líquido</TableHead>
+            <TableHead className="text-right">Lucro</TableHead>
+            <TableHead>Fase</TableHead>
+            <TableHead>Próx. Verificação</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                Nenhuma aquisição encontrada
+              </TableCell>
+            </TableRow>
+          ) : (
+            data.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="font-medium">{formatDate(item.data_aquisicao)}</TableCell>
+                <TableCell>
+                  <Badge variant={getIncidentBadgeVariant(item.incidente)}>
+                    {item.incidente.replace(/_/g, ' ').toUpperCase()}
+                  </Badge>
+                </TableCell>
+                <TableCell>{item.cessionario_nome}</TableCell>
+                <TableCell className="text-right">
+                  {formatCurrency(Number(item.preco_pago))}
+                </TableCell>
+                <TableCell className="text-right">
+                  {formatCurrency(Number(item.valor_liquido))}
+                </TableCell>
+                <TableCell className="text-right font-semibold text-success">
+                  {formatCurrency(Number(item.lucro))}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline">{item.fase_processo || 'N/A'}</Badge>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {item.proxima_verificacao ? formatDate(item.proxima_verificacao) : 'N/A'}
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+
   return (
     <Card className="shadow-card">
       <CardHeader>
-        <CardTitle>Aquisições Recentes</CardTitle>
+        <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="all" className="w-full">
           <TabsList className="mb-4">
-            <TabsTrigger value="all">Todas</TabsTrigger>
-            <TabsTrigger value="precatorio">Precatórios</TabsTrigger>
-            <TabsTrigger value="rpv">RPV</TabsTrigger>
-            <TabsTrigger value="prioridade">Prioridade</TabsTrigger>
+            <TabsTrigger value="all">Todas ({acquisitions.length})</TabsTrigger>
+            <TabsTrigger value="precatorio">Precatórios ({precatorios.length})</TabsTrigger>
+            <TabsTrigger value="rpv">RPV ({rpvs.length})</TabsTrigger>
+            <TabsTrigger value="prioridade">Prioridade ({prioridade.length})</TabsTrigger>
+            <TabsTrigger value="sjrp">SJRP ({sjrp.length})</TabsTrigger>
           </TabsList>
+          
           <TabsContent value="all">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Incidente</TableHead>
-                    <TableHead>Cessionário</TableHead>
-                    <TableHead className="text-right">Valor Pago</TableHead>
-                    <TableHead className="text-right">Valor Líquido</TableHead>
-                    <TableHead className="text-right">Lucro</TableHead>
-                    <TableHead>Fase</TableHead>
-                    <TableHead>Próx. Verificação</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockData.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.dataAquisicao}</TableCell>
-                      <TableCell>
-                        <Badge variant={item.incidente === "RPV" ? "secondary" : "outline"}>
-                          {item.incidente}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{item.cessionario}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(item.precoPago)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(item.valorLiquido)}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-success">
-                        {formatCurrency(item.lucro)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{item.fase}</Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {item.proximaVerificacao}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            {renderTable(acquisitions)}
           </TabsContent>
+          
           <TabsContent value="precatorio">
-            <p className="text-center text-muted-foreground py-8">
-              Filtro de precatórios em desenvolvimento
-            </p>
+            {renderTable(precatorios)}
           </TabsContent>
+          
           <TabsContent value="rpv">
-            <p className="text-center text-muted-foreground py-8">
-              Filtro de RPV em desenvolvimento
-            </p>
+            {renderTable(rpvs)}
           </TabsContent>
+          
           <TabsContent value="prioridade">
-            <p className="text-center text-muted-foreground py-8">
-              Filtro de prioridade em desenvolvimento
-            </p>
+            {renderTable(prioridade)}
+          </TabsContent>
+          
+          <TabsContent value="sjrp">
+            {renderTable(sjrp)}
           </TabsContent>
         </Tabs>
       </CardContent>
