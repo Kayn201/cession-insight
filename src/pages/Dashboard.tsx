@@ -304,6 +304,7 @@ const Dashboard = () => {
           <TabsList className="mb-4">
             <TabsTrigger value="ativas">Aquisições Ativas ({aquisitiveAtivas})</TabsTrigger>
             <TabsTrigger value="finalizadas">Aquisições Finalizadas ({finishedAcquisitions.length})</TabsTrigger>
+            <TabsTrigger value="total">Aquisições Total ({totalAquisicoes})</TabsTrigger>
           </TabsList>
           
           <TabsContent value="ativas">
@@ -312,6 +313,10 @@ const Dashboard = () => {
           
           <TabsContent value="finalizadas">
             <AcquisitionsTable acquisitions={finishedAcquisitions} title="Aquisições Finalizadas" />
+          </TabsContent>
+          
+          <TabsContent value="total">
+            <AcquisitionsTable acquisitions={acquisitions} title="Todas as Aquisições" />
           </TabsContent>
         </Tabs>
       </main>

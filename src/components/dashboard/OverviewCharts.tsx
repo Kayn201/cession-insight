@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Acquisition = {
   id: string;
@@ -15,24 +16,29 @@ type OverviewChartsProps = {
 };
 
 const OverviewCharts = ({ acquisitions }: OverviewChartsProps) => {
+  const [timeView, setTimeView] = useState<'monthly' | 'annual'>('monthly');
+
   const monthlyData = useMemo(() => {
-    const monthsMap = new Map<string, { investido: number; lucro: number }>();
+    const periodMap = new Map<string, { investido: number; lucro: number }>();
     
     acquisitions.forEach((acq) => {
       const date = new Date(acq.data_aquisicao);
-      const monthYear = date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+      const periodKey = timeView === 'monthly'
+        ? date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+        : date.getFullYear().toString();
       
-      const current = monthsMap.get(monthYear) || { investido: 0, lucro: 0 };
-      monthsMap.set(monthYear, {
+      const current = periodMap.get(periodKey) || { investido: 0, lucro: 0 };
+      periodMap.set(periodKey, {
         investido: current.investido + Number(acq.preco_pago),
         lucro: current.lucro + Number(acq.lucro),
       });
     });
 
-    return Array.from(monthsMap.entries())
-      .map(([name, data]) => ({ name, ...data }))
-      .slice(-6);
-  }, [acquisitions]);
+    const data = Array.from(periodMap.entries())
+      .map(([name, data]) => ({ name, ...data }));
+    
+    return timeView === 'monthly' ? data.slice(-6) : data;
+  }, [acquisitions, timeView]);
 
   const incidentData = useMemo(() => {
     const incidentMap = new Map<string, number>();
@@ -59,7 +65,15 @@ const OverviewCharts = ({ acquisitions }: OverviewChartsProps) => {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <Card className="shadow-card">
         <CardHeader>
-          <CardTitle>Investimentos e Lucros Mensais</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Investimentos e Lucros</CardTitle>
+            <Tabs value={timeView} onValueChange={(value) => setTimeView(value as 'monthly' | 'annual')}>
+              <TabsList>
+                <TabsTrigger value="monthly">Mensal</TabsTrigger>
+                <TabsTrigger value="annual">Anual</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
