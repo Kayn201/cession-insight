@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,12 +14,44 @@ const FirstAccess = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  useEffect(() => {
+    checkIfFirstUser();
+  }, []);
+
+  const checkIfFirstUser = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .limit(1);
+
+      if (error) throw error;
+
+      // Se já existe um usuário, redireciona para login
+      if (data && data.length > 0) {
+        toast({
+          title: "Acesso não permitido",
+          description: "O administrador geral já foi criado. Use a página de login.",
+          variant: "destructive",
+        });
+        navigate("/auth");
+        return;
+      }
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error checking first user:', error);
+      setLoading(false);
+    }
+  };
+
   const handleFirstAccess = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
 
     if (password !== confirmPassword) {
       toast({
@@ -90,6 +122,17 @@ const FirstAccess = () => {
       setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Verificando...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary to-accent p-4">
