@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Session } from "@supabase/supabase-js";
+import { fetchMondayBoard, getUniqueCessionarios } from "@/services/monday";
 
 type UserProfile = {
   id: string;
@@ -27,6 +28,7 @@ const UserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [cessionariosList, setCessionariosList] = useState<string[]>([]);
   
   // Form states
   const [newUserName, setNewUserName] = useState("");
@@ -48,6 +50,7 @@ const UserManagement = () => {
         setTimeout(() => {
           checkAdminStatus(session.user.id);
           fetchUsers();
+          fetchCessionarios();
         }, 0);
       }
     });
@@ -60,12 +63,28 @@ const UserManagement = () => {
         setTimeout(() => {
           checkAdminStatus(session.user.id);
           fetchUsers();
+          fetchCessionarios();
         }, 0);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const fetchCessionarios = async () => {
+    try {
+      const board = await fetchMondayBoard();
+      const cessionarios = getUniqueCessionarios(board.items);
+      setCessionariosList(cessionarios);
+    } catch (error) {
+      console.error('Error fetching cessionarios:', error);
+      toast({
+        title: "Erro ao carregar cessionários",
+        description: "Não foi possível carregar a lista de cessionários do Monday.com",
+        variant: "destructive",
+      });
+    }
+  };
 
   const checkAdminStatus = async (userId: string) => {
     try {
@@ -308,14 +327,27 @@ const UserManagement = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="cessionario">Cessionário</Label>
-                    <Input
-                      id="cessionario"
-                      value={newUserCessionario}
-                      onChange={(e) => setNewUserCessionario(e.target.value)}
-                      placeholder={newUserRole === 'admin' ? 'Não aplicável para administradores' : 'Nome do cessionário'}
-                      disabled={newUserRole === 'admin'}
-                      required={newUserRole !== 'admin'}
-                    />
+                    {newUserRole === 'admin' ? (
+                      <Input
+                        id="cessionario"
+                        value=""
+                        placeholder="Não aplicável para administradores"
+                        disabled
+                      />
+                    ) : (
+                      <Select value={newUserCessionario} onValueChange={setNewUserCessionario}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um cessionário" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {cessionariosList.map((cessionario) => (
+                            <SelectItem key={cessionario} value={cessionario}>
+                              {cessionario}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="role">Função</Label>

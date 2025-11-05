@@ -9,20 +9,40 @@ type Acquisition = {
   incidente: string;
   preco_pago: number;
   lucro: number;
+  data_pagamento?: string | null;
+  status?: 'ativa' | 'finalizada';
 };
 
 type OverviewChartsProps = {
   acquisitions: Acquisition[];
+  finishedAcquisitions?: Acquisition[];
 };
 
-const OverviewCharts = ({ acquisitions }: OverviewChartsProps) => {
+const OverviewCharts = ({ acquisitions, finishedAcquisitions = [] }: OverviewChartsProps) => {
   const [timeView, setTimeView] = useState<'monthly' | 'annual'>('monthly');
+  const [statusFilter, setStatusFilter] = useState<'ativas' | 'finalizadas'>('ativas');
+
+  // Filtrar aquisições baseado no status
+  const filteredAcquisitions = useMemo(() => {
+    if (statusFilter === 'finalizadas') {
+      // Para finalizadas, usar apenas as que têm data de pagamento
+      return finishedAcquisitions.filter(acq => acq.data_pagamento);
+    } else {
+      // Para ativas, usar apenas as que não têm data de pagamento
+      return acquisitions.filter(acq => !acq.data_pagamento);
+    }
+  }, [acquisitions, finishedAcquisitions, statusFilter]);
 
   const monthlyData = useMemo(() => {
     const periodMap = new Map<string, { investido: number; lucro: number }>();
     
-    acquisitions.forEach((acq) => {
-      const date = new Date(acq.data_aquisicao);
+    filteredAcquisitions.forEach((acq) => {
+      // Para finalizadas, usar data de pagamento; para ativas, usar data de aquisição
+      const dateKey = statusFilter === 'finalizadas' && acq.data_pagamento 
+        ? acq.data_pagamento 
+        : acq.data_aquisicao;
+      
+      const date = new Date(dateKey);
       const periodKey = timeView === 'monthly'
         ? date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
         : date.getFullYear().toString();
@@ -35,15 +55,21 @@ const OverviewCharts = ({ acquisitions }: OverviewChartsProps) => {
     });
 
     const data = Array.from(periodMap.entries())
-      .map(([name, data]) => ({ name, ...data }));
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => {
+        // Ordenar por data
+        const dateA = new Date(a.name);
+        const dateB = new Date(b.name);
+        return dateA.getTime() - dateB.getTime();
+      });
     
-    return timeView === 'monthly' ? data.slice(-6) : data;
-  }, [acquisitions, timeView]);
+    return timeView === 'monthly' ? data.slice(-12) : data;
+  }, [filteredAcquisitions, timeView, statusFilter]);
 
   const incidentData = useMemo(() => {
     const incidentMap = new Map<string, number>();
     
-    acquisitions.forEach((acq) => {
+    filteredAcquisitions.forEach((acq) => {
       const current = incidentMap.get(acq.incidente) || 0;
       incidentMap.set(acq.incidente, current + 1);
     });
@@ -60,17 +86,25 @@ const OverviewCharts = ({ acquisitions }: OverviewChartsProps) => {
       value,
       color: colors[name as keyof typeof colors] || "hsl(0, 0%, 50%)",
     }));
-  }, [acquisitions]);
+  }, [filteredAcquisitions]);
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <Card className="shadow-card">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Investimentos e Lucros</CardTitle>
-            <Tabs value={timeView} onValueChange={(value) => setTimeView(value as 'monthly' | 'annual')}>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <CardTitle>Investimentos e Lucros</CardTitle>
+              <Tabs value={timeView} onValueChange={(value) => setTimeView(value as 'monthly' | 'annual')}>
+                <TabsList>
+                  <TabsTrigger value="monthly">Mensal</TabsTrigger>
+                  <TabsTrigger value="annual">Anual</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'ativas' | 'finalizadas')}>
               <TabsList>
-                <TabsTrigger value="monthly">Mensal</TabsTrigger>
-                <TabsTrigger value="annual">Anual</TabsTrigger>
+                <TabsTrigger value="ativas">Ativos</TabsTrigger>
+                <TabsTrigger value="finalizadas">Finalizados</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
