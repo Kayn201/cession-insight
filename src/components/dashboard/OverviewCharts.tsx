@@ -337,6 +337,7 @@ const OverviewCharts = ({ acquisitions, finishedAcquisitions = [], allAcquisitio
   const [selectedPrecatorioResumoYear, setSelectedPrecatorioResumoYear] = useState<string>('all');
   const [selectedPrecatorioResumoGroup, setSelectedPrecatorioResumoGroup] = useState<PrecatorioResumoGroupValue>('all');
   const [precatorioResumoExpanded, setPrecatorioResumoExpanded] = useState<boolean>(false);
+  const [extraChartsExpanded, setExtraChartsExpanded] = useState<boolean>(false);
   const [valoresRecebidosView, setValoresRecebidosView] = useState<'geral' | 'detalhado'>('geral');
   const [valoresRecebidosTimeView, setValoresRecebidosTimeView] = useState<'monthly' | 'annual'>('monthly');
   const [selectedValoresRecebidosYear, setSelectedValoresRecebidosYear] = useState<string>('all');
@@ -1883,6 +1884,19 @@ const OverviewCharts = ({ acquisitions, finishedAcquisitions = [], allAcquisitio
       </Card>
     </div>
 
+      <div className="flex justify-center mt-6">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setExtraChartsExpanded((prev) => !prev)}
+          className="px-3 py-1 text-sm"
+        >
+          {extraChartsExpanded ? 'Ocultar gráficos' : 'Mostrar mais gráficos'}
+        </Button>
+      </div>
+
+      {extraChartsExpanded && (
+      <>
       {/* Gráfico de Contratos Fechados */}
       <Card className="shadow-card mt-6">
         <CardHeader>
@@ -3588,6 +3602,8 @@ const OverviewCharts = ({ acquisitions, finishedAcquisitions = [], allAcquisitio
           </div>
         </CardContent>
       </Card>
+      </>
+      )}
     </>
   );
 };
