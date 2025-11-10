@@ -99,18 +99,11 @@ const FirstAccess = () => {
 
         toast({
           title: "Administrador criado com sucesso!",
-          description: "Você será redirecionado para o dashboard.",
+          description: "Você será redirecionado para fazer login.",
         });
 
-        // Sign in immediately
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (signInError) throw signInError;
-
-        navigate("/");
+        // Redirecionar para página de login
+        navigate("/auth");
       }
     } catch (error: any) {
       toast({

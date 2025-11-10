@@ -9,7 +9,7 @@ import { Session } from "@supabase/supabase-js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AcquisitionsTable from "@/components/dashboard/AcquisitionsTable";
 import OverviewCharts from "@/components/dashboard/OverviewCharts";
-import { fetchMondayBoard, convertMondayItemToAcquisition, getUniqueCessionarios } from "@/services/monday";
+import { fetchMondayBoard, convertMondayItemToAcquisition } from "@/services/monday";
 import { Separator } from "@/components/ui/separator";
 
 type Acquisition = {
@@ -26,7 +26,33 @@ type Acquisition = {
   proxima_verificacao: string | null;
   pessoas: string | null;
   data_pagamento: string | null;
+  pagamento_aquisicao: string | null;
+  grupo?: string | null; // Grupo do Monday.com
 };
+
+const normalizeForComparison = (name?: string | null) =>
+  (name || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+const normalizeCessionarioName = (name?: string | null) => {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return trimmed;
+
+  const normalized = trimmed.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const comparable = normalized.toLowerCase();
+
+  if (comparable === 'joao pedro') {
+    return 'Kaio Kinoshita';
+  }
+
+  return trimmed;
+};
+
+const shouldExcludeCessionario = (name?: string | null) =>
+  normalizeForComparison(name) === 'paulo martins';
 
 const Dashboard = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -37,7 +63,7 @@ const Dashboard = () => {
   const [userName, setUserName] = useState<string>("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [cessionariosList, setCessionariosList] = useState<string[]>([]);
-  const [alphaExpanded, setAlphaExpanded] = useState(false);
+  const [alphaSection, setAlphaSection] = useState<'ativos' | 'finalizadas' | 'total' | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -46,8 +72,28 @@ const Dashboard = () => {
     try {
       const board = await fetchMondayBoard();
       const acquisitions = board.items.map(convertMondayItemToAcquisition);
-      setAllAcquisitions(acquisitions);
-      setCessionariosList(getUniqueCessionarios(board.items));
+
+      const sanitizedAcquisitions = acquisitions
+        .filter((acq) => !shouldExcludeCessionario(acq.cessionario_nome))
+        .map((acq) => {
+          const normalizedName = normalizeCessionarioName(acq.cessionario_nome);
+          if (normalizedName && normalizedName !== acq.cessionario_nome) {
+            return { ...acq, cessionario_nome: normalizedName };
+          }
+          return acq;
+        });
+
+      setAllAcquisitions(sanitizedAcquisitions);
+
+      const uniqueCessionarios = Array.from(
+        new Set(
+          sanitizedAcquisitions
+            .map((acq) => normalizeCessionarioName(acq.cessionario_nome))
+            .filter((name) => Boolean(name))
+        )
+      ).sort((a, b) => a.localeCompare(b, 'pt-BR')) as string[];
+
+      setCessionariosList(uniqueCessionarios);
       
       // Se não é admin, buscar cessionário do perfil
       if (!isAdmin && session) {
@@ -58,7 +104,7 @@ const Dashboard = () => {
           .single();
         
         if (profile?.username) {
-          setUserCessionario(profile.username);
+          setUserCessionario(normalizeCessionarioName(profile.username));
         }
       }
       
@@ -158,7 +204,7 @@ const Dashboard = () => {
       if (data) {
         setUserName(data.full_name || "Usuário");
         if (!isAdmin && data.username) {
-          setUserCessionario(data.username);
+          setUserCessionario(normalizeCessionarioName(data.username));
         }
       }
     } catch (error) {
@@ -249,7 +295,12 @@ const Dashboard = () => {
   };
 
   // Componente para renderizar métricas
-  const renderMetrics = (acquisitions: Acquisition[], title: string = "", isExpanded?: boolean, setIsExpanded?: (value: boolean) => void) => {
+  const renderMetrics = (
+    acquisitions: Acquisition[],
+    title: string = "",
+    currentSection?: 'ativos' | 'finalizadas' | 'total' | null,
+    setSection?: (value: 'ativos' | 'finalizadas' | 'total' | null) => void
+  ) => {
     const active = acquisitions.filter(acq => acq.status === 'ativa');
     const finished = acquisitions.filter(acq => acq.status === 'finalizada');
     
@@ -266,7 +317,7 @@ const Dashboard = () => {
     return (
       <>
         {/* Cards de Resumo - Ativas e Finalizadas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 mb-2 md:mb-4">
           <Card className="shadow-card hover:shadow-hover transition-shadow bg-gradient-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -328,8 +379,10 @@ const Dashboard = () => {
           </Card>
         </div>
 
+        <div className="h-2 md:h-0"></div>
+
         {/* Cards de Cálculo Médio - Todas as Aquisições */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 mb-2 md:mb-4">
           <Card className="shadow-card hover:shadow-hover transition-shadow bg-gradient-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -388,25 +441,36 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Botão Expandir para Alpha Intermediação */}
-        {title === "Alpha Intermediação de Serviços e Negócios LTDA" && setIsExpanded && (
-          <div className="flex justify-center mt-4 mb-4">
+        {title === "Alpha Intermediação de Serviços e Negócios LTDA" && setSection && (
+          <div className="flex justify-center mt-4 mb-4 gap-2">
             <Button
-              variant="ghost"
+              variant={currentSection === 'ativos' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setSection(currentSection === 'ativos' ? null : 'ativos')}
             >
-              {isExpanded ? "Recolher" : "Expandir"}
+              Ativos
+            </Button>
+            <Button
+              variant={currentSection === 'finalizadas' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSection(currentSection === 'finalizadas' ? null : 'finalizadas')}
+            >
+              Finalizados
+            </Button>
+            <Button
+              variant={currentSection === 'total' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSection(currentSection === 'total' ? null : 'total')}
+            >
+              Total
             </Button>
           </div>
         )}
 
-        {/* Cards Especiais para Alpha Intermediação */}
-        {title === "Alpha Intermediação de Serviços e Negócios LTDA" && isExpanded && (
+        {title === "Alpha Intermediação de Serviços e Negócios LTDA" && currentSection === 'ativos' && (
           <>
             {/* Cards para Ativos */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 mb-2 md:mb-4">
               <Card className="shadow-card hover:shadow-hover transition-shadow bg-gradient-card">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -471,9 +535,13 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             </div>
+          </>
+        )}
 
+        {title === "Alpha Intermediação de Serviços e Negócios LTDA" && currentSection === 'finalizadas' && (
+          <>
             {/* Cards para Finalizadas */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 mb-2 md:mb-4">
               <Card className="shadow-card hover:shadow-hover transition-shadow bg-gradient-card">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -542,9 +610,13 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             </div>
+          </>
+        )}
 
+        {title === "Alpha Intermediação de Serviços e Negócios LTDA" && currentSection === 'total' && (
+          <>
             {/* Cards de Total (soma de todos os grupos) */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-4 mb-2 md:mb-4">
               <Card className="shadow-card hover:shadow-hover transition-shadow bg-gradient-card">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -613,15 +685,34 @@ const Dashboard = () => {
         )}
 
         {/* Gráficos */}
-        <OverviewCharts acquisitions={active} finishedAcquisitions={finished} />
+        <OverviewCharts 
+          acquisitions={active} 
+          finishedAcquisitions={finished} 
+          allAcquisitions={filteredAcquisitions}
+        />
 
         {/* Tabelas de Aquisições com Tabs */}
-        <Tabs defaultValue="ativas" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="ativas">Aquisições Ativas ({active.length})</TabsTrigger>
-            <TabsTrigger value="finalizadas">Aquisições Finalizadas ({finished.length})</TabsTrigger>
-            <TabsTrigger value="total">Aquisições Total ({acquisitions.length})</TabsTrigger>
-          </TabsList>
+        <div className="mt-6">
+          <Tabs defaultValue="ativas" className="w-full">
+            <div className="flex justify-center mb-2">
+              <TabsList className="w-full md:w-auto overflow-x-auto scrollbar-hide gap-0.5">
+              <TabsTrigger value="ativas" className="px-2 md:px-2.5">
+                <span className="hidden sm:inline">Aquisições Ativas</span>
+                <span className="sm:hidden">Ativas</span>
+                <span className="ml-1">({active.length})</span>
+              </TabsTrigger>
+              <TabsTrigger value="finalizadas" className="px-2 md:px-2.5">
+                <span className="hidden sm:inline">Aquisições Finalizadas</span>
+                <span className="sm:hidden">Finalizadas</span>
+                <span className="ml-1">({finished.length})</span>
+              </TabsTrigger>
+              <TabsTrigger value="total" className="px-2 md:px-2.5">
+                <span className="hidden sm:inline">Aquisições Total</span>
+                <span className="sm:hidden">Total</span>
+                <span className="ml-1">({acquisitions.length})</span>
+              </TabsTrigger>
+            </TabsList>
+            </div>
           
           <TabsContent value="ativas">
             <AcquisitionsTable acquisitions={active} title="Aquisições Ativas" />
@@ -635,6 +726,7 @@ const Dashboard = () => {
             <AcquisitionsTable acquisitions={acquisitions} title="Todas as Aquisições" />
           </TabsContent>
         </Tabs>
+        </div>
       </>
     );
   };
@@ -657,35 +749,46 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary to-accent">
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-10 shadow-card">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-primary-foreground" />
+        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex justify-between items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-primary flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-4 h-4 sm:w-6 sm:h-6 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold">Dashboard Financeiro</h1>
-              <p className="text-sm text-muted-foreground">{userName}</p>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base sm:text-xl font-bold truncate">Dashboard Financeiro</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate hidden sm:block">{userName}</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2 flex-shrink-0">
             <Button 
               onClick={handleRefresh} 
               variant="outline" 
               size="sm"
               disabled={refreshing}
+              className="px-2 sm:px-3"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? "Atualizando..." : "Atualizar"}
+              <RefreshCw className={`w-4 h-4 sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{refreshing ? "Atualizando..." : "Atualizar"}</span>
             </Button>
             {isAdmin && (
-              <Button onClick={() => navigate("/users")} variant="outline" size="sm">
-                <Users className="w-4 h-4 mr-2" />
-                Usuários
+              <Button 
+                onClick={() => navigate("/users")} 
+                variant="outline" 
+                size="sm"
+                className="px-2 sm:px-3"
+              >
+                <Users className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Usuários</span>
               </Button>
             )}
-            <Button onClick={handleLogout} variant="outline" size="sm">
-              <LogOut className="w-4 h-4 mr-2" />
-              Sair
+            <Button 
+              onClick={handleLogout} 
+              variant="outline" 
+              size="sm"
+              className="px-2 sm:px-3"
+            >
+              <LogOut className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Sair</span>
             </Button>
           </div>
         </div>
@@ -721,10 +824,10 @@ const Dashboard = () => {
                         </div>
                       )}
                       {renderMetrics(
-                        cessionarioAcquisitions, 
+                        cessionarioAcquisitions,
                         cessionario,
-                        cessionario === "Alpha Intermediação de Serviços e Negócios LTDA" ? alphaExpanded : undefined,
-                        cessionario === "Alpha Intermediação de Serviços e Negócios LTDA" ? setAlphaExpanded : undefined
+                        cessionario === "Alpha Intermediação de Serviços e Negócios LTDA" ? alphaSection : undefined,
+                        cessionario === "Alpha Intermediação de Serviços e Negócios LTDA" ? setAlphaSection : undefined
                       )}
                     </div>
                   );

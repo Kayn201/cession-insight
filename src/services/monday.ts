@@ -124,6 +124,7 @@ export function convertMondayItemToAcquisition(item: MondayItem): {
   proxima_verificacao: string | null;
   pessoas: string | null;
   data_pagamento: string | null;
+  pagamento_aquisicao: string | null;
   processo: string | null;
   habilitacao_cessionario: string | null;
   mapa_orcamentario: string | null;
@@ -133,9 +134,13 @@ export function convertMondayItemToAcquisition(item: MondayItem): {
   demanda: string | null;
   resumo: string | null;
   titular_acao: string | null;
+  grupo: string | null;
 } {
   const dataAquisicao = extractDate(getColumnValue(item, COLUMN_MAPPING.DATA_AQUISICAO)) || item.created_at.split("T")[0];
+  // Manter DATA_PAGAMENTO como estava antes para não afetar outros gráficos
   const dataPagamento = extractDate(getColumnValue(item, COLUMN_MAPPING.DATA_PAGAMENTO));
+  // Campo separado para Pagamento Aquisição (usado apenas no gráfico de Contratos Fechados)
+  const pagamentoAquisicao = extractDate(getColumnValue(item, COLUMN_MAPPING.PAGAMENTO_AQUISICAO));
   const proximaVerificacao = extractTimelineDate(getColumnValue(item, COLUMN_MAPPING.PROXIMA_VERIFICACAO));
   
   const valorIncidente = extractNumber(getColumnValue(item, COLUMN_MAPPING.VALOR_INCIDENTE));
@@ -157,6 +162,7 @@ export function convertMondayItemToAcquisition(item: MondayItem): {
     proxima_verificacao: proximaVerificacao,
     pessoas: getColumnValue(item, COLUMN_MAPPING.PESSOAS),
     data_pagamento: dataPagamento,
+    pagamento_aquisicao: pagamentoAquisicao,
     processo: getColumnValue(item, COLUMN_MAPPING.PROCESSO),
     habilitacao_cessionario: getColumnValue(item, COLUMN_MAPPING.HABILITACAO),
     mapa_orcamentario: getColumnValue(item, COLUMN_MAPPING.MAPA_ORCAMENTARIO),
@@ -166,6 +172,7 @@ export function convertMondayItemToAcquisition(item: MondayItem): {
     demanda: getColumnValue(item, COLUMN_MAPPING.DEMANDA),
     resumo: getColumnValue(item, COLUMN_MAPPING.RESUMO),
     titular_acao: item.name, // O nome do item é o titular da ação
+    grupo: item.group?.title || null, // Grupo do Monday.com
   };
 }
 

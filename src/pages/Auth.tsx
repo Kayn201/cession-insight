@@ -16,27 +16,33 @@ const Auth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    checkFirstUser();
+    checkSessionAndFirstUser();
   }, []);
 
-  const checkFirstUser = async () => {
+  const checkSessionAndFirstUser = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id')
-        .limit(1);
+      // Verificar se já está autenticado
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Se já está autenticado, redireciona para o dashboard
+        navigate("/");
+        return;
+      }
+
+      // Se não está autenticado, verificar se existe primeiro usuário
+      const { data, error } = await supabase.rpc('is_first_user');
 
       if (error) throw error;
 
-      // Se não há usuários, redireciona para primeiro acesso
-      if (!data || data.length === 0) {
+      // Se is_first_user retorna true (não há usuários), redireciona para primeiro acesso
+      if (data === true) {
         navigate("/first-access");
         return;
       }
 
       setLoading(false);
     } catch (error) {
-      console.error('Error checking first user:', error);
+      console.error('Error checking session and first user:', error);
       setLoading(false);
     }
   };
