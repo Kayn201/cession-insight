@@ -28,6 +28,8 @@ type Acquisition = {
   data_pagamento: string | null;
   pagamento_aquisicao: string | null;
   grupo?: string | null; // Grupo do Monday.com
+  titular_acao?: string | null; // Nome do elemento do Monday.com
+  mapa_orcamentario?: string | null; // Mapa orçamentário do Monday.com
 };
 
 const normalizeForComparison = (name?: string | null) =>

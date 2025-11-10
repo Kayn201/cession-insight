@@ -97,11 +97,59 @@ function extractNumber(text: string | null): number {
   return isNaN(num) ? 0 : num;
 }
 
-// Função para mapear incidente
-function mapIncidente(text: string | null): "precatorio" | "rpv" | "precatorio_prioridade" | "precatorio_sjrp" {
+// Função para mapear incidente com suporte a variações
+function mapIncidente(text: string | null): string {
   if (!text) return "precatorio";
-  const mapped = INCIDENTE_MAP[text];
-  return mapped || "precatorio";
+  
+  // Normalizar o texto (remover acentos, converter para minúsculas, remover parênteses e caracteres especiais)
+  const normalized = text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[()]/g, " ") // Substituir parênteses por espaços
+    .replace(/\s+/g, " ") // Normalizar espaços múltiplos
+    .trim();
+  
+  // Verificar mapeamento exato primeiro (com e sem normalização)
+  const mapped = INCIDENTE_MAP[text] || INCIDENTE_MAP[text.trim()];
+  if (mapped) return mapped;
+  
+  // Extrair todas as palavras do texto normalizado
+  const palavras = normalized.split(/\s+/);
+  const temPrioridade = palavras.some(p => p.includes("prioridade"));
+  const temAcordo = palavras.some(p => p.includes("acordo"));
+  const temSjrp = palavras.some(p => p.includes("sjrp"));
+  const temRpv = palavras.some(p => p.includes("rpv"));
+  const temPrecatorio = palavras.some(p => p.includes("precatorio") || p.includes("precatório"));
+  
+  // Verificar por palavras-chave na ordem de especificidade
+  // Mais específico primeiro: "prioridade" + "acordo"
+  if (temPrioridade && temAcordo) {
+    return "precatorio_prioridade_acordo";
+  }
+  // Depois: apenas "acordo"
+  if (temAcordo && temPrecatorio) {
+    return "precatorio_acordo";
+  }
+  // Depois: apenas "prioridade"
+  if (temPrioridade && temPrecatorio) {
+    return "precatorio_prioridade";
+  }
+  // Depois: "sjrp"
+  if (temSjrp && temPrecatorio) {
+    return "precatorio_sjrp";
+  }
+  // Depois: "rpv"
+  if (temRpv) {
+    return "rpv";
+  }
+  // Por último: "precatório" genérico
+  if (temPrecatorio) {
+    return "precatorio";
+  }
+  
+  // Se não encontrar, retornar o valor original normalizado (substituir espaços por underscore)
+  return normalized.replace(/\s+/g, "_");
 }
 
 // Função para determinar se está finalizado
@@ -113,7 +161,7 @@ function isFinished(item: MondayItem): boolean {
 export function convertMondayItemToAcquisition(item: MondayItem): {
   id: string;
   data_aquisicao: string;
-  incidente: "precatorio" | "rpv" | "precatorio_prioridade" | "precatorio_sjrp";
+  incidente: string;
   cessionario_nome: string;
   valor_incidente: number;
   preco_pago: number;

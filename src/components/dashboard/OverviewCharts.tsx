@@ -318,6 +318,75 @@ const useMonthlyViewYearSync = (
   }, [isMobile, timeView, selectedYear, setSelectedYear, availableYears]);
 };
 
+// Componente para item da legenda com tooltip
+const LegendItemWithTooltip = ({ 
+  entry, 
+  fullData, 
+  isMobile 
+}: { 
+  entry: any; 
+  fullData: { name: string; value: number; incidentes: Array<{ nome: string; quantidade: number }> } | undefined;
+  isMobile: boolean;
+}) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  
+  return (
+    <div
+      className={`relative ${isMobile ? 'flex items-center w-full' : 'inline-flex items-center'} gap-1 cursor-pointer`}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+      onClick={() => setShowTooltip(!showTooltip)}
+    >
+      <span
+        style={{
+          display: 'inline-block',
+          width: '12px',
+          height: '12px',
+          borderRadius: '50%',
+          backgroundColor: entry.color,
+          marginRight: '4px',
+          flexShrink: 0,
+        }}
+      />
+      <span style={{ fontSize: isMobile ? '9px' : '10px' }}>
+        {isMobile ? entry.value : (entry.value.length > 25 ? entry.value.substring(0, 25) + '...' : entry.value)}
+      </span>
+      {showTooltip && fullData && (
+        <div 
+          className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 bg-background border border-border rounded-lg shadow-lg p-3"
+          style={{ 
+            fontSize: isMobile ? '10px' : '11px',
+            minWidth: '200px',
+            maxWidth: '300px',
+          }}
+        >
+          <p className="font-semibold mb-2" style={{ fontSize: isMobile ? '11px' : '12px' }}>
+            {fullData.name}
+          </p>
+          <p className="text-muted-foreground mb-2" style={{ fontSize: isMobile ? '10px' : '11px' }}>
+            Total: {fullData.value} incidente{fullData.value !== 1 ? 's' : ''}
+          </p>
+          {fullData.incidentes.length > 0 ? (
+            <div className="mt-2 pt-2 border-t border-border">
+              <p className="font-medium mb-1" style={{ fontSize: isMobile ? '10px' : '11px' }}>
+                Detalhamento por tipo:
+              </p>
+              <div className="space-y-1">
+                {fullData.incidentes.map((incidente, idx) => (
+                  <div key={idx} className="flex justify-between gap-2" style={{ fontSize: isMobile ? '9px' : '10px' }}>
+                    <span className="truncate">{incidente.nome}</span>
+                    <span className="font-semibold whitespace-nowrap">{incidente.quantidade}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const OverviewCharts = ({ acquisitions, finishedAcquisitions = [], allAcquisitions = [] }: OverviewChartsProps) => {
   const [timeView, setTimeView] = useState<'monthly' | 'annual'>('monthly');
   const [statusFilter, setStatusFilter] = useState<'ativas' | 'finalizadas'>('ativas');
@@ -482,31 +551,114 @@ const OverviewCharts = ({ acquisitions, finishedAcquisitions = [], allAcquisitio
   }, [filteredAcquisitions, timeView, statusFilter, selectedInvestimentosYear]);
 
   const incidentData = useMemo(() => {
-    const incidentMap = new Map<string, number>();
+    // Agrupar por grupo e armazenar incidentes
+    const groupMap = new Map<string, { count: number; incidentes: Map<string, number> }>();
     
     filteredAcquisitions.forEach((acq) => {
-      const current = incidentMap.get(acq.incidente) || 0;
-      incidentMap.set(acq.incidente, current + 1);
+      const grupo = acq.grupo || 'Sem grupo';
+      // Garantir que o incidente seja uma string normalizada e única
+      let incidente = String(acq.incidente || '').trim();
+      
+      if (!incidente) return; // Pular se não houver incidente
+      
+      // Normalizar o incidente para garantir consistência (lowercase, sem espaços extras)
+      incidente = incidente.toLowerCase().replace(/\s+/g, '_').trim();
+      
+      if (!groupMap.has(grupo)) {
+        groupMap.set(grupo, {
+          count: 0,
+          incidentes: new Map<string, number>(),
+        });
+      }
+      
+      const groupData = groupMap.get(grupo)!;
+      groupData.count += 1;
+      
+      // Usar o incidente normalizado como chave
+      const incidentCount = groupData.incidentes.get(incidente) || 0;
+      groupData.incidentes.set(incidente, incidentCount + 1);
     });
 
-    const colors = {
-      precatorio: "hsl(200, 90%, 40%)",
-      rpv: "hsl(210, 85%, 50%)",
-      precatorio_prioridade: "hsl(142, 76%, 36%)",
-      precatorio_sjrp: "hsl(280, 70%, 45%)",
+    // Gerar cores dinâmicas
+    const generateColors = (count: number) => {
+      const colors = [
+        "hsl(200, 90%, 40%)",   // Azul
+        "hsl(142, 76%, 36%)",   // Verde
+        "hsl(280, 70%, 45%)",   // Roxo
+        "hsl(210, 85%, 50%)",   // Azul claro
+        "hsl(0, 70%, 50%)",     // Vermelho
+        "hsl(30, 90%, 55%)",    // Laranja
+        "hsl(60, 80%, 50%)",    // Amarelo
+        "hsl(150, 70%, 45%)",   // Verde água
+        "hsl(240, 80%, 60%)",   // Azul escuro
+        "hsl(320, 70%, 55%)",   // Rosa
+      ];
+      
+      const additionalColors: string[] = [];
+      for (let i = 10; i < count; i++) {
+        const hue = (i * 137.508) % 360;
+        additionalColors.push(`hsl(${hue}, 70%, 50%)`);
+      }
+      
+      return [...colors, ...additionalColors];
     };
 
-    return Array.from(incidentMap.entries()).map(([name, value]) => ({
-      name: name.replace(/_/g, ' ').toUpperCase(),
-      value,
-      color: colors[name as keyof typeof colors] || "hsl(0, 0%, 50%)",
-    }));
+    const entries = Array.from(groupMap.entries());
+    const colors = generateColors(entries.length);
+
+    return entries.map(([grupo, data], index) => {
+      // Formatar nome do grupo (remover "Aquisições" se existir)
+      const grupoLabel = grupo.replace(/^aquisições\s+/i, '').trim();
+      
+      // Criar detalhamento dos incidentes para o tooltip
+      // Manter o incidente original para exibição
+      const incidentesDetalhados = Array.from(data.incidentes.entries())
+        .map(([incidente, count]) => {
+          // Formatar o nome do incidente para exibição
+          const nomeFormatado = incidente
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+          return {
+            nome: nomeFormatado,
+            quantidade: count,
+            original: incidente, // Manter o original para debug
+          };
+        })
+        .sort((a, b) => b.quantidade - a.quantidade);
+      
+      return {
+        name: grupoLabel,
+        value: data.count,
+        color: colors[index % colors.length],
+        incidentes: incidentesDetalhados, // Para usar no tooltip
+      };
+    }).sort((a, b) => b.value - a.value); // Ordenar por quantidade (maior primeiro)
   }, [filteredAcquisitions]);
 
   const incidentTotalCount = useMemo(
     () => incidentData.reduce((sum, item) => sum + item.value, 0),
     [incidentData]
   );
+
+  // Criar um Map para buscar dados completos pelo nome do grupo (para o tooltip)
+  // Incluir múltiplas chaves possíveis para garantir que funcione
+  const incidentDataMap = useMemo(() => {
+    const map = new Map<string, { name: string; value: number; incidentes: Array<{ nome: string; quantidade: number }> }>();
+    incidentData.forEach(item => {
+      // Adicionar com o nome formatado
+      map.set(item.name, item);
+      // Também adicionar com "Aquisições" prefixado caso necessário
+      map.set(`Aquisições ${item.name}`, item);
+      // Adicionar variações comuns
+      if (item.name.toLowerCase().includes('acordo')) {
+        map.set('Precatórios (Acordo)', item);
+        map.set('Precatórios Acordo', item);
+        map.set('Aquisições Precatórios (Acordo)', item);
+      }
+    });
+    return map;
+  }, [incidentData]);
 
   // Dados para o gráfico de Contratos Fechados
   const contractsData = useMemo(() => {
@@ -1802,12 +1954,7 @@ const OverviewCharts = ({ acquisitions, finishedAcquisitions = [], allAcquisitio
               />
               <YAxis
                 tickFormatter={(value) =>
-                  isMobile
-                    ? formatMobileCurrencyTick(value as number)
-                    : new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL',
-                      }).format(value as number)
+                  formatMobileCurrencyTick(value as number)
                 }
               />
               <Tooltip
@@ -1863,17 +2010,101 @@ const OverviewCharts = ({ acquisitions, finishedAcquisitions = [], allAcquisitio
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={100}
+                label={({ name, percent }) => {
+                  const labelText = `${name} ${(percent * 100).toFixed(0)}%`;
+                  return labelText;
+                }}
+                outerRadius={isMobile ? 80 : 100}
                 fill="#8884d8"
                 dataKey="value"
+                style={{
+                  fontSize: isMobile ? '8px' : '10px',
+                }}
               >
                 {incidentData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip />
-              <Legend />
+              <Tooltip 
+                content={({ active, payload }) => {
+                  if (!active || !payload || !payload[0]) return null;
+                  
+                  // Acessar os dados do payload
+                  const payloadData = payload[0];
+                  const groupName = payloadData.name as string;
+                  
+                  // Buscar os dados completos no Map usando o nome do grupo
+                  const fullData = incidentDataMap.get(groupName);
+                  
+                  if (!fullData) return null;
+                  
+                  const total = fullData.value;
+                  const incidentes = fullData.incidentes || [];
+                  
+                  return (
+                    <div className="bg-background border border-border rounded-lg shadow-lg p-3" style={{ fontSize: isMobile ? '10px' : '11px' }}>
+                      <p className="font-semibold mb-2" style={{ fontSize: isMobile ? '11px' : '12px' }}>
+                        {fullData.name}
+                      </p>
+                      <p className="text-muted-foreground mb-2" style={{ fontSize: isMobile ? '10px' : '11px' }}>
+                        Total: {total} incidente{total !== 1 ? 's' : ''}
+                      </p>
+                      {incidentes.length > 0 ? (
+                        <div className="mt-2 pt-2 border-t border-border">
+                          <p className="font-medium mb-1" style={{ fontSize: isMobile ? '10px' : '11px' }}>
+                            Detalhamento por tipo:
+                          </p>
+                          <div className="space-y-1">
+                            {incidentes.map((incidente, idx) => (
+                              <div key={idx} className="flex justify-between gap-2" style={{ fontSize: isMobile ? '9px' : '10px' }}>
+                                <span className="truncate">{incidente.nome}</span>
+                                <span className="font-semibold whitespace-nowrap">{incidente.quantidade}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground mt-2" style={{ fontSize: isMobile ? '9px' : '10px' }}>
+                          Nenhum detalhamento disponível
+                        </p>
+                      )}
+                    </div>
+                  );
+                }}
+              />
+              <Legend 
+                layout={isMobile ? "vertical" : "horizontal"}
+                verticalAlign="bottom"
+                align="center"
+                wrapperStyle={{
+                  fontSize: isMobile ? '9px' : '10px',
+                  paddingTop: '10px',
+                  textAlign: 'center',
+                  width: '100%',
+                }}
+                iconType="circle"
+                content={({ payload }) => {
+                  if (!payload) return null;
+                  
+                  return (
+                    <div className={`flex ${isMobile ? 'flex-col items-start' : 'flex-wrap justify-center'} gap-2 md:gap-4`}>
+                      {payload.map((entry: any, index: number) => {
+                        const groupName = entry.value as string;
+                        const fullData = incidentDataMap.get(groupName);
+                        
+                        return (
+                          <LegendItemWithTooltip
+                            key={index}
+                            entry={entry}
+                            fullData={fullData}
+                            isMobile={isMobile}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                }}
+              />
             </PieChart>
           </ResponsiveContainer>
         <div className={`mt-4 text-center ${isMobile ? 'text-xs' : 'text-sm'}`}>
